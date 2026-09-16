@@ -1,13 +1,16 @@
 <script setup>
-  import { computed, ref } from 'vue';
+  import { computed, ref, watch } from 'vue';
   import TaskCounter from './components/TaskCounter.vue';
+  import { loadItems, saveItems } from './utils/storage.js';
 
-  const tasks = ref([])
+  const tasks = ref(loadItems())
+
+  let curId = tasks.value.length === 0 
+    ? 0
+    : tasks.value[tasks.value.length - 1].id + 1 
 
   const totalTaskCount = computed(() => tasks.value.length)
   const doneTaskCount = computed(() => tasks.value.filter(task => task.done).length)
-
-  let curId = 0
 
   const selectedTaskFilter = ref('all')
 
@@ -38,6 +41,12 @@
   function clearDoneTasks() {
     tasks.value = tasks.value.filter(task => !task.done)
   }
+
+  watch(
+    tasks, 
+    (updatedTasks) => { saveItems(updatedTasks) }, 
+    {deep: true}
+  )
 
 </script>
 
@@ -99,10 +108,15 @@
     flex-direction: column;
     align-items: center;
     gap: 15px;
-    margin-bottom: 10px;
+    margin-bottom: 1px;
     border: 1px solid #405b97;
     align-items: flex-start;
     padding: 10px 10px;
+  }
+
+  .card ul {
+    padding-left: 0;
+    list-style: none;
   }
 
   .task-actions {
