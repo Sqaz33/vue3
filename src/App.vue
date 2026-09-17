@@ -27,17 +27,25 @@
   const doneTaskCount = computed(() => tasks.value.filter(task => task.done).length)
 
   const selectedTaskFilter = ref('all')
-
+  const searchQuery = ref('')
   const visibleTasks = computed(() => {
-    if (selectedTaskFilter.value === 'active') {
-      return tasks.value.filter(task => !task.done)
+    const statusFilter = () => {
+      if (selectedTaskFilter.value === 'active') {
+        return tasks.value.filter(task => !task.done)
+      }
+
+      if (selectedTaskFilter.value === 'done') {
+        return tasks.value.filter(task => task.done)
+      }
+
+      return tasks.value
     }
 
-    if (selectedTaskFilter.value === 'done') {
-      return tasks.value.filter(task => task.done)
-    }
-
-    return tasks.value
+    const filtred = statusFilter()
+    return filtred.filter(
+      task => task.title
+        .toLowerCase()
+        .includes(searchQuery.value.toLowerCase()))
   })
 
   const sortedTask = computed(
@@ -48,7 +56,7 @@
   const notice = ref(null) 
   let noticeTimer = null
 
-  function setNotice(text) {
+  function setNotice(text, callback) {
     notice.value = text
     if (noticeTimer !== null) {
       clearTimeout(noticeTimer)
@@ -56,10 +64,13 @@
     noticeTimer = setTimeout(() => {
         notice.value = null
         noticeTimer = null
+        callback?.()
       }, 
       2000
     )
   }
+
+  const removedTask = ref(null)
 
   function addTask() {
     if (newTitle.value === '') return
@@ -69,7 +80,24 @@
   }
 
   function removeTask(id) {
+    if (editingTaskId.value === id) {
+      stopEdit()
+    }
+    const task = tasks.value.find(task => task.id === id)
+    removedTask.value = { 
+      idx: tasks.value.findIndex(t => t.id === task.id), 
+      task
+    }
+    setNotice("Задача удалена", () => { removedTask.value = null })
     tasks.value = tasks.value.filter(task => task.id !== id)
+  }
+
+  function restoreTask() {
+    if (removedTask.value != null) {
+      tasks.value.splice(removedTask.value.idx, 0, removedTask.value.task)
+      removedTask.value = null
+      setNotice("Задача возвращенна")
+    }
   }
 
   function clearDoneTasks() {
@@ -111,7 +139,13 @@
 
 <template>
   <main class="card">
-    <div v-if="notice" class="toast">{{ notice }}</div>
+    <Transition name="toast">
+      <div v-if="notice" class="toast">
+        <span> {{ notice }} </span>
+        <button v-if="removedTask" @click="restoreTask()">Вернуть задачу</button>
+      </div>
+    </Transition>
+
     <div class="stats">
       <span>Всего {{ stats.total }}</span> 
       <span>|</span> 
@@ -126,6 +160,7 @@
         <option value="done">Готово</option>
       </select>
       <button @click="markAllActive()" >Все активны</button>
+      <input placeholder="Поиск" v-model.trim="searchQuery"/>
     </div>  
 
     <ul>
@@ -231,11 +266,25 @@
 
   .toast {
     position: fixed;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     right: 24px;
     bottom: 24px;
     padding: 12px 16px;
     background-color: #222;
     color: white;
     border-radius: 8px;
+  }
+  
+  .toast-enter-active,
+  .toast-leave-active {
+    transition: opacity 250ms ease, transform 250ms ease;
+  }
+
+  .toast-enter-from,
+  .toast-leave-to {
+    opacity: 0;
+    transform: translateY(12px);
   }
 </style>
